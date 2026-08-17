@@ -1,0 +1,427 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Structural defaults only. Org branding docs override every color token
+ * per tenant via <BrandStyle> ([data-surface] scoped) — these values are
+ * neutral fallbacks matching the design-system defaults.
+ */
+:root {
+  --radius: 0.625rem;
+  --background: #ffffff;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #262626;
+  --primary-foreground: #fafafa;
+  --secondary: #f5f5f5;
+  --secondary-foreground: #262626;
+  --muted: #f5f5f5;
+  --muted-foreground: #737373;
+  --accent: #f5f5f5;
+  --accent-foreground: #262626;
+  --destructive: #dc2626;
+  --destructive-foreground: #fafafa;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #a3a3a3;
+  --chart-1: #D9362B;
+  --chart-2: #54213F;
+  --chart-3: #0891b2;
+  --chart-4: #ea580c;
+  --chart-5: #737373;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #262626;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f5f5f5;
+  --sidebar-accent-foreground: #262626;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #a3a3a3;
+  --font-display: var(--font-inter);
+  --font-body: var(--font-inter);
+  --font-stat: var(--font-jetbrains);
+
+  /* Semantic layer — colors named by ROLE rather than by shadcn slot. New
+     markup should reach for these. <BrandStyle> restates every one of them
+     per surface from the org's branding doc (see src/lib/branding-css.ts);
+     what follows are the unbranded fallbacks for anything rendering outside a
+     [data-surface] subtree.
+
+     They are written out rather than declared as `var(--primary)`: custom
+     properties substitute at computed-value time on the element that DECLARES
+     them, so an alias defined here would freeze to the neutral value and
+     ignore a surface override further down. */
+  --brand-primary: #262626;
+  --brand-secondary: #f5f5f5;
+  --brand-accent: #f5f5f5;
+  --brand-on-primary: #fafafa;
+  --brand-accent-hover: color-mix(in srgb, #262626 82%, #171717);
+  --brand-glow: #262626;
+  --background-main: #ffffff;
+  --background-sidebar: #fafafa;
+  --background-panel: #ffffff;
+  --background-elevated: #ffffff;
+  --border-primary: #e5e5e5;
+  --border-subtle: color-mix(in srgb, #e5e5e5 55%, transparent);
+  --border-strong: #e5e5e5;
+  --text-primary: #171717;
+  --text-secondary: color-mix(in srgb, #171717 78%, transparent);
+  --text-muted: #737373;
+}
+
+/* Dark clubhouse fallbacks — Ravens of Death palette (never pure #000). */
+.dark {
+  --background: #050407;
+  --foreground: #EEE7E8;
+  --card: #151017;
+  --card-foreground: #EEE7E8;
+  --popover: #151017;
+  --popover-foreground: #EEE7E8;
+  --primary: #D9362B;
+  --primary-foreground: #EEE7E8;
+  --secondary: #2D111F;
+  --secondary-foreground: #EEE7E8;
+  --muted: #2D111F;
+  --muted-foreground: #B8A0A5;
+  --accent: #54213F;
+  --accent-foreground: #EEE7E8;
+  --destructive: #941B22;
+  --destructive-foreground: #EEE7E8;
+  /* Structure is weathered bone, not crimson — ember is reserved for state.
+     See src/lib/branding-defaults.ts, the source of truth these mirror. */
+  --border: rgba(184, 160, 165, 0.14);
+  --input: rgba(184, 160, 165, 0.24);
+  --ring: #D9362B;
+  /* Below Void Black: the rail reads as recessed, not as a floating card. */
+  --sidebar: #030206;
+  --sidebar-foreground: #EEE7E8;
+  --sidebar-primary: #D9362B;
+  --sidebar-primary-foreground: #EEE7E8;
+  --sidebar-accent: #2D111F;
+  --sidebar-accent-foreground: #EEE7E8;
+  --sidebar-border: rgba(184, 160, 165, 0.16);
+  --sidebar-ring: #D9362B;
+
+  /* Semantic layer, dark. Same note as :root — restated, not aliased. */
+  --brand-primary: #D9362B;
+  --brand-secondary: #2D111F;
+  --brand-accent: #54213F;
+  --brand-on-primary: #EEE7E8;
+  --brand-accent-hover: color-mix(in srgb, #D9362B 82%, #EEE7E8);
+  --brand-glow: #D9362B;
+  --background-main: #050407;
+  --background-sidebar: #030206;
+  --background-panel: #151017;
+  --background-elevated: #1D1620;
+  --border-primary: rgba(184, 160, 165, 0.14);
+  --border-subtle: color-mix(in srgb, rgba(184, 160, 165, 0.14) 55%, transparent);
+  --border-strong: rgba(184, 160, 165, 0.24);
+  --text-primary: #EEE7E8;
+  --text-secondary: color-mix(in srgb, #EEE7E8 78%, transparent);
+  --text-muted: #B8A0A5;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  /* Semantic layer as Tailwind utilities — `bg-elevated`, `border-subtle`,
+     `text-secondary`, `shadow-glow`. Only the roles that have no shadcn
+     equivalent are exposed; for the rest keep using `bg-card`, `text-primary`
+     and friends, which already point at the same branded values. */
+  --color-brand-glow: var(--brand-glow);
+  --color-elevated: var(--background-elevated);
+  --color-subtle: var(--border-subtle);
+  --color-secondary-text: var(--text-secondary);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ── Design-system utilities (portal) ─────────────────────────────── */
+
+/* Gold glow for primary CTAs — dark clubhouse signature. */
+@utility glow-gold {
+  box-shadow:
+    0 0 24px color-mix(in srgb, var(--primary) 25%, transparent),
+    0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Leather-grain noise texture — Patch Wall & hero ONLY (perf budget). */
+@utility texture-noise {
+  position: relative;
+}
+.texture-noise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Tabular numerals for stats — no layout shift on ticking numbers. */
+@utility font-stat {
+  font-family: var(--font-stat);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Glass system ───────────────────────────────────────────────────
+   Frosted surfaces + ember underglow. Every value derives from the
+   org's branding vars via color-mix — a tenant with a green palette
+   gets green glass and green glow for free, so the no-hardcoded-brand
+   rule holds.
+
+   Tiers (wired up in ui/button.tsx):
+     ember   = the one primary action on a page (glass-ember)
+     frosted = default interactive surface   (glass)
+     etched  = quiet dismiss/back            (ghost variant, no glow)
+     blood   = destructive, stays SOLID — a delete that glows prettier
+               than a save teaches the wrong reflex.
+
+   Perf rule: backdrop-filter forces the compositor to re-sample what's
+   behind it. It is reserved for chrome and small floating elements
+   (buttons, the sticky header, dialogs, popovers, toasts). Repeated
+   in-flow surfaces — cards in grids, list rows — use glass-card: the
+   same look painted with gradients only, zero compositor cost. Never
+   put a backdrop-filter inside the Leaflet map panes or a long list. */
+
+/* Small interactive glass — buttons, chips, pills. */
+@utility glass {
+  border: 1px solid color-mix(in srgb, var(--foreground) 14%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--foreground) 10%, transparent),
+    color-mix(in srgb, var(--foreground) 3%, transparent) 46%,
+    color-mix(in srgb, var(--background) 32%, transparent)
+  );
+  backdrop-filter: blur(12px) saturate(135%);
+  -webkit-backdrop-filter: blur(12px) saturate(135%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 16%, transparent),
+    inset 0 -1px 0 rgb(0 0 0 / 0.35),
+    0 10px 22px -14px rgb(0 0 0 / 0.9);
+}
+
+/* Primary-action tint over the same glass. Declared after `glass` so
+   composing "glass glass-ember" lets the tint win. */
+@utility glass-ember {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 42%, transparent),
+    color-mix(in srgb, var(--primary) 27%, transparent) 50%,
+    color-mix(in srgb, var(--accent) 35%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--primary-foreground) 28%, transparent),
+    inset 0 -1px 0 rgb(0 0 0 / 0.3),
+    0 10px 24px -14px color-mix(in srgb, var(--primary) 80%, transparent);
+}
+
+/* Large floating chrome — dialogs, popovers, dropdowns, the header.
+   More card in the mix than `glass`: menus sit over body text and
+   must stay legible, atmosphere or not. */
+@utility glass-panel {
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--foreground) 7%, transparent),
+      transparent 40%
+    ),
+    color-mix(in srgb, var(--card) 86%, transparent);
+  backdrop-filter: blur(16px) saturate(125%);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 12%, transparent),
+    0 18px 40px -28px rgb(0 0 0 / 1);
+}
+
+/* In-flow panels, grid cards, list rows — glass look, NO blur (perf). */
+@utility glass-card {
+  border: 1px solid color-mix(in srgb, var(--foreground) 9%, transparent);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--foreground) 6%, transparent),
+      transparent 45%
+    ),
+    color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 14px 32px -24px rgb(0 0 0 / 0.9);
+}
+
+/* Etched double-stroke frame, matched to the border painted into the
+   chain-of-command plate so the controls beneath it read as the same piece
+   of hardware.
+
+   Only the OUTER stroke and the ember bloom live here — the control inside
+   keeps drawing its own border as the inner stroke. That's what makes the
+   pair, and it leaves the control's focus-visible ring completely alone
+   (a wrapper that repainted the border would have swallowed it). */
+@utility etched-plate {
+  outline: 1px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: 3px;
+  box-shadow: 0 0 22px -10px color-mix(in srgb, var(--primary) 70%, transparent);
+}
+
+/* Interactive lift + ember edge. Hover only exists on pointer devices —
+   without the guard, :hover sticks after a tap on touch screens. */
+@utility glass-hover {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease,
+    background-color 0.28s ease,
+    color 0.2s ease;
+}
+@media (hover: hover) {
+  .glass-hover:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--foreground) 22%, transparent),
+      0 14px 30px -16px rgb(0 0 0 / 0.95),
+      0 0 22px -4px color-mix(in srgb, var(--primary) 38%, transparent);
+  }
+}
+.glass-hover:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 6px rgb(0 0 0 / 0.55);
+}
+
+/* The bloom under a button. A pseudo-element, so it needs no wrapper —
+   but it extends 8px below the element, so keep overflow visible.
+   Fires on hover (pointer devices), keyboard focus, and press; never on
+   disabled controls. The focus ring stays the focus indicator — the
+   glow is atmosphere, not a11y. */
+@utility underglow {
+  position: relative;
+}
+.underglow::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -8px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--primary);
+  filter: blur(14px);
+  opacity: 0;
+  transform: scaleX(0.6);
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
+  pointer-events: none;
+}
+@media (hover: hover) {
+  .underglow:hover::after {
+    opacity: 0.55;
+    transform: scaleX(1);
+  }
+}
+.underglow:focus-visible::after {
+  opacity: 0.55;
+  transform: scaleX(1);
+}
+.underglow:active::after {
+  opacity: 0.8;
+  transform: scaleX(0.9);
+}
+.underglow:disabled::after,
+.underglow[aria-disabled="true"]::after {
+  display: none;
+}
+
+/* Route entrance — played by portal/template.tsx on every navigation.
+   Subtle by design: the page settles, it doesn't perform. The global
+   reduced-motion block below flattens it to nothing. */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@utility animate-page-in {
+  animation: page-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Glass must degrade to solid panels when the OS asks for less
+   transparency — unreadable soup is not a premium finish. */
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-ember,
+  .glass-panel,
+  .glass-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--card);
+  }
+  .glass-ember {
+    background: color-mix(in srgb, var(--primary) 65%, var(--background));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

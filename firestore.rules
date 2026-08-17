@@ -1,0 +1,196 @@
+rules_version = '2';
+
+// Brotherhood Portal — multi-tenant isolation rules.
+// Client SDK is READ-ONLY except event RSVPs. All mutations flow through
+// Next.js Server Actions using the Admin SDK (which bypasses these rules);
+// these rules protect against direct client access.
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSuper() {
+      return signedIn() && request.auth.token.superAdmin == true;
+    }
+    // Custom claims shape: { superAdmin?: true, orgs: { [orgId]: { r: 'admin'|'officer'|'member', m: memberId } } }
+    function orgEntry(orgId) {
+      return request.auth.token.orgs[orgId];
+    }
+    function isMember(orgId) {
+      return signedIn() && (isSuper() || (('orgs' in request.auth.token) && orgId in request.auth.token.orgs));
+    }
+    function isOfficer(orgId) {
+      return signedIn() && (isSuper() || (isMember(orgId) && orgEntry(orgId).r in ['officer', 'admin']));
+    }
+    function isOrgAdmin(orgId) {
+      return signedIn() && (isSuper() || (isMember(orgId) && orgEntry(orgId).r == 'admin'));
+    }
+    function myMemberId(orgId) {
+      return orgEntry(orgId).m;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isSuper());
+      allow write: if false;
+    }
+
+    match /domains/{hostname} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /platformAuditLogs/{logId} {
+      allow read: if isSuper();
+      allow write: if false;
+    }
+
+    match /discordLinkCodes/{code} {
+      // Discord link handshake: minted by a server action, redeemed by the
+      // bot. Server-only both ways, same as invites.
+      allow read, write: if false;
+    }
+
+    match /discordClubs/{orgId} {
+      // Which Discord server a club rides in, and where its tickets land for
+      // review. One server can host several clubs, so this is keyed by club.
+      // Written only by /connect (admin role proven through the account
+      // link). Server-only.
+      allow read, write: if false;
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isMember(orgId);
+      allow write: if false;
+
+      match /branding/{docId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /vestConfigs/{surface} {
+        // Digital Cut: vest art + slot map. Club-visible; authored server-side.
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /rankVisuals/{rankId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /ranks/{rankId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /activityTypes/{typeId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /members/{memberId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+
+        // Officer-only: isolated as a subcollection so document-level rules can gate it.
+        match /notes/{noteId} {
+          allow read: if isOfficer(orgId);
+          allow write: if false;
+        }
+        match /serviceRecord/{entryId} {
+          allow read: if isMember(orgId);
+          allow write: if false;
+        }
+      }
+      match /activities/{activityId} {
+        // Activity feed is club-visible by design (v1).
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /patches/{patchId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /patchArt/{patchId} {
+        // Patch/emblem artwork. Written only by uploadPatchArt (admin server action).
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /awardedPatches/{awardId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /cutLayouts/{memberId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /prospectProfiles/{memberId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+
+        match /tasks/{taskId} {
+          allow read: if isMember(orgId);
+          allow write: if false;
+        }
+        match /notes/{noteId} {
+          allow read: if isOfficer(orgId);
+          allow write: if false;
+        }
+      }
+      match /gallery/{photoId} {
+        allow read: if isOfficer(orgId)
+          || (isMember(orgId)
+              && (resource.data.status == 'approved'
+                  || resource.data.uploadedByMemberId == myMemberId(orgId)));
+        allow write: if false;
+      }
+      match /galleryArt/{photoId} {
+        // Photo bytes, split off /gallery so a wall can list metadata without
+        // dragging blobs (same split as patches/patchArt).
+        //
+        // Server-only, and stricter than patchArt's `isMember` on purpose: the
+        // sibling doc's read rule turns on this photo's status, which a rule
+        // here could only re-derive with a get(). Nothing client-side reads
+        // these — every surface goes through the gallery route, which runs the
+        // real three-audience check with the Admin SDK.
+        allow read, write: if false;
+      }
+      match /mapMarkers/{markerId} {
+        // Club Map intel pins — club-visible; mutations via server actions only.
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /mapTerritories/{territoryId} {
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /treasury/{docId} {
+        // The club bank's running balance. Club-visible like the ledger below;
+        // moved only inside the approval transaction (Admin SDK).
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /treasuryTransactions/{txId} {
+        // Money movements: dues, deposits, withdrawals. Club-visible by design,
+        // same as the activity feed — the club's money is the club's business.
+        allow read: if isMember(orgId);
+        allow write: if false;
+      }
+      match /auditLogs/{logId} {
+        allow read: if isOrgAdmin(orgId);
+        allow write: if false;
+      }
+      match /invites/{inviteId} {
+        // Token exchange is server-only.
+        allow read, write: if false;
+      }
+      match /applications/{uid} {
+        // Officers triage the queue; an applicant may read their own status.
+        // Created/updated only via server actions (Admin SDK).
+        allow read: if isOfficer(orgId) || (signedIn() && request.auth.uid == uid);
+        allow write: if false;
+      }
+    }
+
+    // Default deny — also blocks collection-group queries from clients.
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

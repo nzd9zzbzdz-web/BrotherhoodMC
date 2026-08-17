@@ -1,0 +1,68 @@
+rules_version = '2';
+
+// Storage paths are org-scoped: /orgs/{orgId}/...
+// Same claims shape as Firestore rules: orgs: { [orgId]: { r, m } }
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSuper() {
+      return signedIn() && request.auth.token.superAdmin == true;
+    }
+    function isMember(orgId) {
+      return signedIn() && (isSuper() || (('orgs' in request.auth.token) && orgId in request.auth.token.orgs));
+    }
+    function isOfficer(orgId) {
+      return signedIn() && (isSuper() || (isMember(orgId) && request.auth.token.orgs[orgId].r in ['officer', 'admin']));
+    }
+    function myMemberId(orgId) {
+      return request.auth.token.orgs[orgId].m;
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    function isProofMedia() {
+      return request.resource.contentType.matches('image/.*')
+        || request.resource.contentType == 'video/mp4';
+    }
+
+    match /orgs/{orgId}/branding/{file=**} {
+      allow read: if isMember(orgId);
+      allow write: if false; // server-managed
+    }
+
+    match /orgs/{orgId}/members/{memberId}/{file=**} {
+      allow read: if isMember(orgId);
+      allow write: if isMember(orgId)
+        && myMemberId(orgId) == memberId
+        && isImage()
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /orgs/{orgId}/patches/{file=**} {
+      allow read: if isMember(orgId);
+      allow write: if false; // server-managed
+    }
+
+    match /orgs/{orgId}/proof/{memberId}/{activityId}/{file=**} {
+      allow read: if isOfficer(orgId) || (isMember(orgId) && myMemberId(orgId) == memberId);
+      allow write: if isMember(orgId)
+        && myMemberId(orgId) == memberId
+        && isProofMedia()
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /orgs/{orgId}/gallery/{file=**} {
+      allow read: if isMember(orgId);
+      allow write: if isMember(orgId)
+        && isImage()
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
