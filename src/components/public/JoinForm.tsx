@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
@@ -24,10 +25,32 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [done, setDone] = useState(false);
+  // Set when the blocker is the password on an account known to exist: the one
+  // failure this form can help with, by mailing a reset link.
+  const [needsReset, setNeedsReset] = useState(false);
+  const [resetState, setResetState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+
+  // Offered only after a failed sign-in, where the account is known to exist,
+  // so this discloses nothing the form has not already said. Beyond a
+  // forgotten password, the reset also clears Firebase's temporary lockout
+  // after repeated failed attempts, which otherwise rejects even the correct
+  // password and is indistinguishable from a wrong one.
+  async function handleReset() {
+    setResetState("sending");
+    try {
+      await sendPasswordResetEmail(getClientAuth(), email.trim());
+      setResetState("sent");
+    } catch {
+      // Usually throttling. Say so rather than claiming a mail we did not send.
+      setResetState("failed");
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setNeedsReset(false);
+    setResetState("idle");
     setPending(true);
 
     const auth = getClientAuth();
@@ -59,12 +82,20 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
       try {
         const cred = await signInWithEmailAndPassword(auth, address, password);
         idToken = await cred.user.getIdToken();
-      } catch {
+      } catch (signInErr) {
         // The failed create above already disclosed that the account exists,
         // so the only thing left to say is which password this form wants.
+        // One case must be told apart: after repeated failures Firebase
+        // temporarily locks the account and rejects even the CORRECT
+        // password, and reading the code is the only way to stop that
+        // lockout masquerading as one more wrong guess.
+        const signInCode = (signInErr as { code?: string })?.code ?? "";
         setError(
-          "This email already has an account. Enter that account's password to apply with it.",
+          signInCode === "auth/too-many-requests"
+            ? "This account is temporarily locked after too many attempts. Wait a few minutes, or reset the password below (the reset also clears the lock)."
+            : "This email already has an account, but that isn't its password. Enter that account's password to apply with it, or reset it below.",
         );
+        setNeedsReset(true);
         setPending(false);
         return;
       }
@@ -145,8 +176,35 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
+        <div className="space-y-2">
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+          {needsReset && resetState !== "sent" && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={resetState === "sending"}
+              onClick={handleReset}
+            >
+              {resetState === "sending" && <Loader2 className="size-4 animate-spin" aria-hidden />}
+              {resetState === "sending" ? "Sending…" : "Email me a password reset link"}
+            </Button>
+          )}
+          {resetState === "failed" && (
+            <p className="text-sm text-muted-foreground">
+              Couldn&rsquo;t send the reset link just now. Please try again in a few minutes.
+            </p>
+          )}
+        </div>
+      )}
+
+      {resetState === "sent" && (
+        <p role="status" className="text-sm text-muted-foreground">
+          A reset link is on its way to {email.trim()}. Follow it, set a new password, then come
+          back and submit this form with that password. Check your spam folder if it doesn&rsquo;t
+          arrive.
         </p>
       )}
 

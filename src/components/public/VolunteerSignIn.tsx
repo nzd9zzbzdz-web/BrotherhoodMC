@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from "firebase/auth";
 import { KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getClientAuth } from "@/lib/firebase/client";
@@ -14,7 +14,28 @@ function SignInForm({ orgSlug, orgId }: { orgSlug: string; orgId: string }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [resetState, setResetState] = useState<"idle" | "sending" | "sent">("idle");
   const showSigninHint = searchParams.get("signin") === "1";
+
+  // Unlike the join form, this door never confirms what is behind it, so the
+  // outcome reads the same whether or not the address has an account, and a
+  // send failure is swallowed for the same reason.
+  async function handleReset() {
+    const address = email.trim();
+    if (!address) {
+      setError("Enter your email address first, then choose Forgot password.");
+      return;
+    }
+    setError(null);
+    setResetState("sending");
+    try {
+      await sendPasswordResetEmail(getClientAuth(), address);
+    } catch {
+      // A thrown auth/user-not-found would reveal which addresses exist,
+      // which is exactly what the generic copy here avoids.
+    }
+    setResetState("sent");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -103,6 +124,25 @@ function SignInForm({ orgSlug, orgId }: { orgSlug: string; orgId: string }) {
           {pending && <Loader2 className="size-4 animate-spin" aria-hidden />}
           {pending ? "Signing in…" : "Sign In"}
         </Button>
+
+        {resetState === "sent" ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            If that address has an account, a reset link is on its way. Check your spam folder
+            if it doesn&rsquo;t arrive.
+          </p>
+        ) : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={resetState === "sending"}
+            onClick={handleReset}
+            className="w-full"
+          >
+            {resetState === "sending" && <Loader2 className="size-4 animate-spin" aria-hidden />}
+            {resetState === "sending" ? "Sending…" : "Forgot your password?"}
+          </Button>
+        )}
       </form>
     </div>
   );
