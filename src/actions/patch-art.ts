@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { FieldValue, orgRef } from "@/lib/firebase/admin";
 import { requireOrgRole } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/audit";
+import { containWithoutMatte } from "@/lib/unmatte";
 import type { ActionResult } from "./activities";
 
 // Vercel hard-rejects a function request body over 4.5MB before the action
@@ -84,9 +85,13 @@ export async function uploadPatchArt(formData: FormData): Promise<ActionResult> 
         background: { r: 0, g: 0, b: 0, alpha: 0 },
       });
 
+    // Patch art is a cut-out slot too, so the same rescue applies: a JPEG or a
+    // white-matted PNG would otherwise put a white box behind every badge.
+    const source = await containWithoutMatte(base, input);
+
     let stored: Buffer | null = null;
     for (const quality of [88, 75, 60]) {
-      const candidate = await base.clone().webp({ quality }).toBuffer();
+      const candidate = await source.clone().webp({ quality }).toBuffer();
       if (candidate.length <= MAX_STORED_BYTES) {
         stored = candidate;
         break;

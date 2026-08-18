@@ -7,6 +7,7 @@ import { FieldValue, orgRef } from "@/lib/firebase/admin";
 import { requireOrgRole } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/audit";
 import { BRANDING_ART, surfacesFor, type BrandingArtKey } from "@/lib/branding-art";
+import { containWithoutMatte } from "@/lib/unmatte";
 import type { ActionResult } from "./activities";
 
 // Vercel hard-rejects a function request body over 4.5MB before the action
@@ -107,11 +108,18 @@ export async function uploadBrandingArt(formData: FormData): Promise<ActionResul
           : {}),
       });
 
+    // A cut-out slot fed art with no alpha of its own arrives as a solid
+    // rectangle: white-matted emblems rendered as white blocks on a near-black
+    // page. Only fully opaque sources are candidates, so a genuine transparent
+    // PNG is never second-guessed, and `cover` slots are untouched.
+    const source =
+      spec.fit === "contain" ? await containWithoutMatte(base, input) : base;
+
     let stored: Buffer | null = null;
     for (const quality of [82, 72, 62, 50]) {
       // `alphaQuality`/lossless are not needed — webp keeps the alpha channel
       // at any quality, and these are photographs and painted art, not icons.
-      const candidate = await base.clone().webp({ quality }).toBuffer();
+      const candidate = await source.clone().webp({ quality }).toBuffer();
       if (candidate.length <= MAX_STORED_BYTES) {
         stored = candidate;
         break;
