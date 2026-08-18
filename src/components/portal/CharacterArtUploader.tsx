@@ -42,8 +42,13 @@ export function CharacterArtUploader({
     formData.set("memberId", memberId);
     formData.set("file", file);
     startTransition(async () => {
-      const result = await uploadCharacterRender(formData);
-      if (result.ok) {
+      // An oversized request body rejects this promise before the action even
+      // runs. Without catching it the branches below are never reached, so the
+      // user saw no message at all and the button stayed on its pending label.
+      const result = await uploadCharacterRender(formData).catch(() => null);
+      if (result === null) {
+        toast.error("Upload failed. The image may be too large to send.");
+      } else if (result.ok) {
         toast.success(
           result.data?.pending
             ? "Uploaded. An officer will clear it for the public page"

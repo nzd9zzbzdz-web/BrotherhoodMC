@@ -19,7 +19,9 @@ import {
 import type { ActionResult } from "./activities";
 import type { CharacterPose, StageEmblemPlacement } from "@/lib/types";
 
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // raw upload cap
+// Vercel hard-rejects a function request body over 4.5MB before the action
+// runs, so anything above that could never be refused politely here.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // raw upload cap
 const MAX_STORED_BYTES = 700 * 1024; // keep the Firestore doc well under 1MB
 
 /**
@@ -50,7 +52,7 @@ export async function uploadCharacterRender(
     return { ok: false, error: "File must be an image" };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "Image too large (max 8MB)" };
+    return { ok: false, error: "Image too large (max 4MB)" };
   }
 
   try {

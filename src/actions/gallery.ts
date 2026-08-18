@@ -16,7 +16,9 @@ import {
 import type { ActionResult } from "./activities";
 import type { GalleryPhoto } from "@/lib/types";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // raw upload cap (phone photos are big)
+// Vercel hard-rejects a function request body over 4.5MB before the action
+// runs, so anything above that could never be refused politely here.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // raw upload cap
 const MAX_STORED_BYTES = 700 * 1024; // base64 inflates 4/3 — keeps the doc under 1MB
 const DAILY_UPLOAD_CAP = 30;
 
@@ -59,7 +61,7 @@ export async function uploadGalleryPhoto(
     return { ok: false, error: "File must be an image" };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "Photo too large (max 10MB)" };
+    return { ok: false, error: "Photo too large (max 4MB)" };
   }
   const caption =
     typeof rawCaption === "string" ? rawCaption.trim().slice(0, GALLERY_CAPTION_MAX) : "";

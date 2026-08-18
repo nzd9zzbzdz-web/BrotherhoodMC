@@ -45,8 +45,13 @@ export function BrandingArtUploader({
     formData.set("key", artKey);
     formData.set("file", file);
     startTransition(async () => {
-      const result = await uploadBrandingArt(formData);
-      if (result.ok) toast.success(`${label} updated`);
+      // An oversized request body rejects this promise before the action even
+      // runs. Without catching it the branches below are never reached, so the
+      // user saw no message at all and the button stayed on its pending label.
+      const result = await uploadBrandingArt(formData).catch(() => null);
+      if (result === null)
+        toast.error("Upload failed. The image may be too large to send.");
+      else if (result.ok) toast.success(`${label} updated`);
       else toast.error(result.error ?? "Upload failed");
       if (fileRef.current) fileRef.current.value = "";
     });

@@ -40,8 +40,13 @@ export function GalleryUploader({
     if (canReview && publish) formData.set("publish", "1");
 
     startTransition(async () => {
-      const result = await uploadGalleryPhoto(formData);
-      if (result.ok) {
+      // An oversized request body rejects this promise before the action even
+      // runs. Without catching it the branches below are never reached, so the
+      // user saw no message at all and the button stayed on its pending label.
+      const result = await uploadGalleryPhoto(formData).catch(() => null);
+      if (result === null) {
+        toast.error("Upload failed. The photo may be too large to send.");
+      } else if (result.ok) {
         toast.success(
           result.data?.pending
             ? "Posted. An officer will clear it for the club"

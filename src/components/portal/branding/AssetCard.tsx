@@ -9,7 +9,7 @@ import type { BrandingArtSpec, BrandingArtKey } from "@/lib/branding-art";
 
 /** Matches the action's own list, so a rejection happens before the upload. */
 const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"];
-const MAX_BYTES = 12 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024; // matches the action; above this the platform refuses the body
 
 /**
  * One swappable image: what the site is drawing now, what it should be, and
@@ -56,7 +56,7 @@ export function AssetCard({
       return;
     }
     if (file.size > MAX_BYTES) {
-      toast.error("Image too large (max 12MB)");
+      toast.error("Image too large (max 4MB)");
       return;
     }
     if (staged) URL.revokeObjectURL(staged.url);

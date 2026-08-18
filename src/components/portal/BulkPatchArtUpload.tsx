@@ -88,8 +88,12 @@ export function BulkPatchArtUpload({
           formData.set("orgId", orgId);
           formData.set("patchId", item.patchId);
           formData.set("file", file);
-          const result = await uploadPatchArt(formData);
-          if (result.ok) ok += 1;
+          // An oversized body rejects before the action runs. Uncaught, that
+          // would also abort every remaining worker, so one big file could
+          // strand the whole batch instead of failing a single patch.
+          const result = await uploadPatchArt(formData).catch(() => null);
+          if (result === null) failed.push(`${item.fileName}: too large to send`);
+          else if (result.ok) ok += 1;
           else failed.push(`${item.fileName}: ${result.error ?? "failed"}`);
           setProgress((n) => n + 1);
         }

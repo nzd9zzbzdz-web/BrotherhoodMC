@@ -9,7 +9,9 @@ import { writeAuditLog } from "@/lib/audit";
 import { BRANDING_ART, surfacesFor, type BrandingArtKey } from "@/lib/branding-art";
 import type { ActionResult } from "./activities";
 
-const MAX_UPLOAD_BYTES = 12 * 1024 * 1024; // raw upload cap
+// Vercel hard-rejects a function request body over 4.5MB before the action
+// runs, so anything above that could never be refused politely here.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // raw upload cap
 /**
  * Scene art, not a badge: these fill a card or a whole character screen, so
  * they get far more room than a patch's 64KB. Still well under Firestore's 1MB
@@ -65,7 +67,7 @@ export async function uploadBrandingArt(formData: FormData): Promise<ActionResul
     return { ok: false, error: "Use a PNG, JPG, WEBP or AVIF image" };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "Image too large (max 12MB)" };
+    return { ok: false, error: "Image too large (max 4MB)" };
   }
 
   try {

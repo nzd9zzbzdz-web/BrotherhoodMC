@@ -8,7 +8,9 @@ import { requireOrgRole } from "@/lib/auth/session";
 import { writeAuditLog } from "@/lib/audit";
 import type { ActionResult } from "./activities";
 
-const MAX_UPLOAD_BYTES = 8 * 1024 * 1024; // raw upload cap
+// Vercel hard-rejects a function request body over 4.5MB before the action
+// runs, so anything above that could never be refused politely here.
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024; // raw upload cap
 /**
  * A badge, not a photo. Patches draw at 36-48px on the ladder and the wall, so
  * 256² still has headroom for a 3x display and for the cut renderer later,
@@ -58,7 +60,7 @@ export async function uploadPatchArt(formData: FormData): Promise<ActionResult> 
     return { ok: false, error: "File must be an image" };
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return { ok: false, error: "Image too large (max 8MB)" };
+    return { ok: false, error: "Image too large (max 4MB)" };
   }
 
   try {
