@@ -34,7 +34,7 @@ import {
   portalBranding,
   publicBranding,
 } from "./lib/branding";
-import type { Branding, Patch, StatKey } from "../src/lib/types";
+import type { Branding, Patch, SessionClaims, StatKey, UserDoc } from "../src/lib/types";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "demo-brotherhood-portal";
 const ORG_ID = process.env.ORG_ID ?? "brotherhood";
@@ -194,7 +194,24 @@ async function bootstrap() {
     },
     { merge: true },
   );
-  await auth.setCustomUserClaims(uid, { orgs: { [ORG_ID]: { r: "admin", m: memberId } } });
+  // REBUILD claims from the users doc merged above, never replace them with
+  // this club alone. Orgs share one Firebase project, so the founding admin
+  // here may already be an admin of a sibling club and/or a platform
+  // superAdmin, and a bare overwrite silently strips both. Same shape as
+  // syncUserClaims() in src/lib/auth/claims.ts, which CLAUDE.md names as the
+  // only thing allowed to move claims.
+  const userDoc = (await db.collection("users").doc(uid).get()).data() as
+    | UserDoc
+    | undefined;
+  const claims: SessionClaims = {};
+  if (userDoc?.superAdmin) claims.superAdmin = true;
+  if (userDoc?.memberships && Object.keys(userDoc.memberships).length > 0) {
+    claims.orgs = {};
+    for (const [id, m] of Object.entries(userDoc.memberships)) {
+      claims.orgs[id] = { r: m.role, m: m.memberId };
+    }
+  }
+  await auth.setCustomUserClaims(uid, claims as object);
   console.log("  ✓ admin member record + membership + claims");
 
   // Digital Cut config (M8): vest surfaces, slots, rank visuals, patch rarity.
