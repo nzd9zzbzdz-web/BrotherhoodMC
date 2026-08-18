@@ -54,6 +54,7 @@ const APPLICANT_UIDS = [
   "applicant-4",
   "applicant-5",
   "applicant-6",
+  "applicant-7",
 ];
 
 async function resetOrg() {
@@ -173,6 +174,39 @@ describe("approveApplication", () => {
     const res = await approveApplication({ orgId: ORG, applicationId: "applicant-4", role: "officer" });
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/only an admin/i);
+  });
+
+  // Clubs on a shared Firebase project share one auth pool AND one
+  // users/{uid} doc, so a rider can legitimately hold memberships in two of
+  // them. Approving into the second club must ADD to that doc, never rewrite
+  // it: a stomped displayName renames her in the other club's portal.
+  it("adds this club to an account that already rides with another", async () => {
+    const OTHER = "some-other-club";
+    const openedAt = Timestamp.fromDate(new Date("2020-01-02T03:04:05Z"));
+    await adminDb.collection("users").doc("applicant-7").set({
+      email: "dual@example.com",
+      displayName: "Her Other Club Name",
+      memberships: { [OTHER]: { memberId: "other-member-id", role: "officer" } },
+      createdAt: openedAt,
+    });
+    await writePendingApplication("applicant-7", "dual@example.com", "Wraith");
+    mockAccess = { user: { uid: "admin-1" }, role: "admin", memberId: "m-admin", isSuper: false };
+
+    const res = await approveApplication({ orgId: ORG, applicationId: "applicant-7", role: "member" });
+    expect(res.ok).toBe(true);
+
+    const user = (await adminDb.collection("users").doc("applicant-7").get()).data()!;
+    // Both memberships live side by side.
+    expect(user.memberships[OTHER]).toEqual({ memberId: "other-member-id", role: "officer" });
+    expect(user.memberships[ORG].role).toBe("member");
+    // The account's own identity is left exactly as the other club knows it.
+    expect(user.displayName).toBe("Her Other Club Name");
+    expect(user.createdAt.toMillis()).toBe(openedAt.toMillis());
+
+    // She still gets a fresh member record and number in THIS club.
+    const members = await orgRef(ORG).collection("members").where("uid", "==", "applicant-7").get();
+    expect(members.size).toBe(1);
+    expect(members.docs[0].data().roadName).toBe("Wraith");
   });
 
   it("rejects a double-approval", async () => {

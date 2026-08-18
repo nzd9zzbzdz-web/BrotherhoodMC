@@ -563,15 +563,23 @@ export async function acceptInvite(raw: {
         throw new InviteError("This member is already linked to an account");
       }
 
+      // Read before write: users/{uid} is account-level and shared across the
+      // clubs this person rides with, so accepting only ADDS this club's
+      // membership to an account that already exists. See approveApplication.
+      const userRef = adminDb.collection("users").doc(uid);
+      const userSnap = await tx.get(userRef);
+
       tx.update(memberRef, { uid });
       tx.set(
-        adminDb.collection("users").doc(uid),
-        {
-          email,
-          displayName,
-          memberships: { [orgId]: { memberId: data.memberId, role: data.role } },
-          createdAt: FieldValue.serverTimestamp(),
-        },
+        userRef,
+        userSnap.exists
+          ? { memberships: { [orgId]: { memberId: data.memberId, role: data.role } } }
+          : {
+              email,
+              displayName,
+              memberships: { [orgId]: { memberId: data.memberId, role: data.role } },
+              createdAt: FieldValue.serverTimestamp(),
+            },
         { merge: true },
       );
       tx.update(inviteRef, { usedAt: FieldValue.serverTimestamp() });

@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { createUserWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getClientAuth } from "@/lib/firebase/client";
@@ -27,23 +31,43 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
     setPending(true);
 
     const auth = getClientAuth();
+    const address = email.trim();
     let idToken: string;
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const cred = await createUserWithEmailAndPassword(auth, address, password);
       idToken = await cred.user.getIdToken();
     } catch (err) {
       const code = (err as { code?: string })?.code ?? "";
-      setError(
-        code === "auth/email-already-in-use"
-          ? "An account with this email already exists. If you've already applied, hang tight, or sign in."
-          : code === "auth/weak-password"
+      if (code !== "auth/email-already-in-use") {
+        setError(
+          code === "auth/weak-password"
             ? "Password should be at least 6 characters."
             : code === "auth/invalid-email"
               ? "That doesn't look like a valid email address."
               : "Couldn't create your account. Please try again.",
-      );
-      setPending(false);
-      return;
+        );
+        setPending(false);
+        return;
+      }
+      // Clubs on this platform share ONE Firebase auth pool, so an applicant
+      // who already rides with another club cannot make a second account under
+      // the same email, and does not need one. Everything past this point is
+      // already per-club (applications are keyed organizations/{orgId}/{uid},
+      // memberships are a map on users/{uid}), so that account is reusable as
+      // is: sign in with it and apply as herself. Dead-ending here was the
+      // ONLY thing stopping a rider from joining two clubs.
+      try {
+        const cred = await signInWithEmailAndPassword(auth, address, password);
+        idToken = await cred.user.getIdToken();
+      } catch {
+        // The failed create above already disclosed that the account exists,
+        // so the only thing left to say is which password this form wants.
+        setError(
+          "This email already has an account. Enter that account's password to apply with it.",
+        );
+        setPending(false);
+        return;
+      }
     }
 
     const result = await submitApplication({
@@ -76,7 +100,7 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
         <h2 className="mt-3 text-lg font-semibold text-card-foreground">Application sent</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Thanks, &ldquo;{roadName}&rdquo;. An officer will review your application. Once you&rsquo;re
-          approved, sign in on the Volunteer Resources page with the email and password you just set.
+          approved, sign in on the Volunteer Resources page with that email and password.
         </p>
       </div>
     );
@@ -104,10 +128,14 @@ export function JoinForm({ orgId }: { orgSlug: string; orgId: string }) {
       </div>
       <div>
         <label htmlFor="j-pass" className={LABEL}>
-          Choose a password
+          Password
         </label>
         <input id="j-pass" type="password" required minLength={6} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className={INPUT} />
-        <p className="mt-1 text-xs text-muted-foreground">At least 6 characters. You&rsquo;ll use this to sign in once approved.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          At least 6 characters, and you&rsquo;ll use it to sign in once approved. If this
+          email already has an account with another club on this network, enter that
+          account&rsquo;s password instead and we&rsquo;ll attach your application to it.
+        </p>
       </div>
       <div>
         <label htmlFor="j-msg" className={LABEL}>

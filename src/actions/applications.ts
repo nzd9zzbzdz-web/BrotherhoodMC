@@ -151,14 +151,22 @@ export async function approveApplication(
           memberCount: FieldValue.increment(1),
           lastMemberNumber: nextNumber,
         });
+        // users/{uid} is ACCOUNT-level and shared by every club this person
+        // rides with, so an approval may only ADD its own membership. merge
+        // deep-merges the memberships map, leaving the other clubs' entries
+        // intact; the identity fields belong to whoever opened the account, and
+        // rewriting them here would rename her in the other club's portal and
+        // reset the account's age.
         tx.set(
           userRef,
-          {
-            email: app.email,
-            displayName: app.handle,
-            memberships: { [orgId]: { memberId, role } },
-            createdAt: FieldValue.serverTimestamp(),
-          },
+          userSnap.exists
+            ? { memberships: { [orgId]: { memberId, role } } }
+            : {
+                email: app.email,
+                displayName: app.handle,
+                memberships: { [orgId]: { memberId, role } },
+                createdAt: FieldValue.serverTimestamp(),
+              },
           { merge: true },
         );
       }
