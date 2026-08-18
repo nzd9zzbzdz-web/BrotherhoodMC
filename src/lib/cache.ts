@@ -118,6 +118,11 @@ export const TTL = {
   reference: 3600,
   /** Members, awards, map pins, gallery — moved by ordinary club activity. */
   club: 900,
+  /** A lookup that MISSED. Deliberately short: an absent doc is what a brand
+   *  new club looks like until a script creates it, and scripts fire no tag,
+   *  so a miss held for `reference` kept a live org 404ing for an hour with
+   *  no in-app way to clear it. Hits keep the long TTL. */
+  miss: 60,
 } as const;
 
 /**

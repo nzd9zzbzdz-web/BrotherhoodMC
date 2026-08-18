@@ -13,6 +13,35 @@ import type { Branding, Organization } from "@/lib/types";
 
 const CACHE_ENABLED = process.env.NODE_ENV === "production";
 
+/**
+ * Cache a lookup that can legitimately miss, without letting the miss stick.
+ *
+ * `unstable_cache` stores a null like any other value, so the ABSENCE of an org
+ * was cached for the full reference TTL. Nothing cleared it: bootstrap and the
+ * other scripts write Firestore straight from a CLI and fire no tag, and the one
+ * action that clears `org:slug:*` is admin-gated behind pages that are themselves
+ * 404ing on that very null. A newly bootstrapped club therefore stayed 404, and
+ * because every 404 request rewrote the miss, a site anyone kept refreshing never
+ * healed on its own.
+ *
+ * Hits keep the long reference TTL. A miss falls through to a short-lived entry,
+ * which still absorbs a scan of unknown slugs but surfaces a new org in a minute.
+ */
+async function cachedNullable<T>(
+  key: string[],
+  tags: string[],
+  load: () => Promise<T | null>,
+): Promise<T | null> {
+  const read = (parts: string[], revalidate: number) =>
+    unstable_cache(async () => encodeForCache(await load()), parts, {
+      tags,
+      revalidate,
+    })();
+  const hit = decodeFromCache(await read(key, TTL.reference)) as T | null;
+  if (hit !== null) return hit;
+  return decodeFromCache(await read([...key, "miss"], TTL.miss)) as T | null;
+}
+
 /** Resolve an org by slug — React cache() dedupes per request. */
 export const getOrgBySlug = cache(
   async (slug: string): Promise<Organization | null> => {
@@ -29,12 +58,7 @@ export const getOrgBySlug = cache(
     if (!CACHE_ENABLED) return load();
     // Tagged by slug as well as id: on a miss there is no id to tag with yet,
     // and a rename has to be able to clear the entry keyed on the old slug.
-    const run = unstable_cache(
-      async () => encodeForCache(await load()),
-      ["orgBySlug", slug],
-      { tags: [`org:slug:${slug}`], revalidate: TTL.reference },
-    );
-    return decodeFromCache(await run()) as Organization | null;
+    return cachedNullable(["orgBySlug", slug], [`org:slug:${slug}`], load);
   },
 );
 
@@ -48,12 +72,7 @@ export const getOrgById = cache(
         : null;
     };
     if (!CACHE_ENABLED) return load();
-    const run = unstable_cache(
-      async () => encodeForCache(await load()),
-      ["orgById", orgId],
-      { tags: [orgTags.org(orgId)], revalidate: TTL.reference },
-    );
-    return decodeFromCache(await run()) as Organization | null;
+    return cachedNullable(["orgById", orgId], [orgTags.org(orgId)], load);
   },
 );
 
