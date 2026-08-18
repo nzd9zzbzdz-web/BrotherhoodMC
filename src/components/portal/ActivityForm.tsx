@@ -115,12 +115,25 @@ export function ActivityForm({
     startTransition(async () => {
       try {
         let proofPath: string | undefined;
+        let proofFailed = false;
         if (proofFile) {
-          // Owner-scoped path enforced by Storage rules.
-          proofPath = `orgs/${orgId}/proof/${memberId}/pending-${Date.now()}/${proofFile.name}`;
-          await uploadBytes(ref(getClientStorage(), proofPath), proofFile, {
-            contentType: proofFile.type,
-          });
+          // Best effort, and deliberately NOT allowed to take the ticket down
+          // with it. This is the only client-side Storage write in the app;
+          // every other image goes through a Server Action as a webp data URL.
+          // On a project with no bucket provisioned, or whose rules do not
+          // cover this path, the upload throws - and letting that reach the
+          // outer catch discarded the whole submission, losing a run the
+          // member actually did over a photo no surface shows an officer.
+          try {
+            // Owner-scoped path enforced by Storage rules.
+            const path = `orgs/${orgId}/proof/${memberId}/pending-${Date.now()}/${proofFile.name}`;
+            await uploadBytes(ref(getClientStorage(), path), proofFile, {
+              contentType: proofFile.type,
+            });
+            proofPath = path;
+          } catch {
+            proofFailed = true;
+          }
         }
         const result = await submitActivity({
           orgId,
@@ -136,7 +149,11 @@ export function ActivityForm({
         if (result.ok) {
           // No router.refresh() — the action revalidated this page, so the
           // response already carried the fresh submission list.
-          toast.success("Activity submitted for review");
+          toast.success(
+            proofFailed
+              ? "Activity submitted for review. The photo could not be attached."
+              : "Activity submitted for review",
+          );
           setSelected({});
           setDescription("");
           setSelectedWitnesses([]);
@@ -145,7 +162,7 @@ export function ActivityForm({
           toast.error(result.error ?? "Submission failed");
         }
       } catch {
-        toast.error("Upload failed. Try again");
+        toast.error("Submission failed. Try again");
       }
     });
   }
